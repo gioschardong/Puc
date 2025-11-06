@@ -1,0 +1,416 @@
+"use client"
+import { useState, useEffect } from "react"
+import { DashboardHeader } from "@/components/dashboard-header"
+import { StatCard } from "@/components/stat-card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Checkbox } from "@/components/ui/checkbox"
+import { getCategoryNames } from "@/lib/categories"
+import {
+  demoTransactions,
+  demoGoals,
+  calculateMonthlyStats,
+  getCategoryDistribution,
+  getMonthlyBalanceData,
+} from "@/lib/demo-data"
+import { formatCurrency } from "@/lib/utils"
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+} from "recharts"
+
+const COLORS = ["#6C63FF", "#00E676", "#4FC3F7", "#FFD54F", "#FF6B6B"]
+
+export default function DashboardPage() {
+  const [isTransactionOpen, setIsTransactionOpen] = useState(false)
+  const [categories, setCategories] = useState<string[]>([])
+  const [newTransaction, setNewTransaction] = useState({
+    description: "",
+    amount: "",
+    type: "expense",
+    category: "",
+    account: "",
+    date: new Date().toISOString().split("T")[0],
+    isInstallment: false,
+    installments: 1,
+  })
+
+  useEffect(() => {
+    setCategories(getCategoryNames())
+  }, [])
+
+  const stats = calculateMonthlyStats(demoTransactions)
+  const categoryData = getCategoryDistribution(demoTransactions)
+  const balanceData = getMonthlyBalanceData()
+  const goalProgress = (demoGoals[0].current / demoGoals[0].target) * 100
+
+  const handleCreateTransaction = () => {
+    if (newTransaction.isInstallment && newTransaction.installments > 1) {
+      const installmentAmount = Number.parseFloat(newTransaction.amount) / newTransaction.installments
+      const baseDate = new Date(newTransaction.date)
+
+      for (let i = 0; i < newTransaction.installments; i++) {
+        const installmentDate = new Date(baseDate)
+        installmentDate.setMonth(installmentDate.getMonth() + i)
+
+        console.log(`Criando parcela ${i + 1}/${newTransaction.installments}:`, {
+          ...newTransaction,
+          amount: installmentAmount.toFixed(2),
+          description: `${newTransaction.description} (${i + 1}/${newTransaction.installments})`,
+          date: installmentDate.toISOString().split("T")[0],
+        })
+      }
+    } else {
+      console.log("Criando transação:", newTransaction)
+    }
+
+    setIsTransactionOpen(false)
+    setNewTransaction({
+      description: "",
+      amount: "",
+      type: "expense",
+      category: "",
+      account: "",
+      date: new Date().toISOString().split("T")[0],
+      isInstallment: false,
+      installments: 1,
+    })
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      <DashboardHeader />
+
+      {/* Main Container */}
+      <main className="container mx-auto px-4 py-8">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <StatCard
+            title="Saldo Total"
+            value={formatCurrency(stats.balance)}
+            icon={
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+            }
+            trend={{ value: "+12,5%", positive: true }}
+          />
+
+          <StatCard
+            title="Renda Mensal"
+            value={formatCurrency(stats.income)}
+            icon={
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+              </svg>
+            }
+            trend={{ value: "+8,2%", positive: true }}
+          />
+
+          <StatCard
+            title="Despesas Mensais"
+            value={formatCurrency(stats.expenses)}
+            icon={
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M13 17h8m0 0V9m0 8l-8-8-4 4-6 6"
+                />
+              </svg>
+            }
+            trend={{ value: "-3,1%", positive: true }}
+          />
+
+          <StatCard
+            title="Progresso da Meta"
+            value={`${goalProgress.toFixed(0)}%`}
+            icon={
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 014.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138 3.138z"
+                />
+              </svg>
+            }
+            trend={{ value: "+15%", positive: true }}
+          />
+        </div>
+
+        {/* Charts */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          {/* Pie Chart */}
+          <Card className="border-border/50 shadow-lg">
+            <CardHeader>
+              <CardTitle className="text-xl">Despesas por Categoria</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={categoryData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    outerRadius={100}
+                    fill="#8884d8"
+                    dataKey="value"
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  >
+                    {categoryData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value: number) => formatCurrency(Number(value))} />
+                </PieChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+          {/* Line Chart */}
+          <Card className="border-border/50 shadow-lg">
+            <CardHeader>
+              <CardTitle className="text-xl">Evolução do Saldo</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={balanceData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" />
+                  <YAxis stroke="hsl(var(--muted-foreground))" />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "hsl(var(--card))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: "8px",
+                    }}
+                    formatter={(value: number) => [formatCurrency(Number(value)), "Saldo"]}
+                  />
+                  <Legend />
+                  <Line
+                    type="monotone"
+                    dataKey="balance"
+                    name="Saldo"
+                    stroke="#6C63FF"
+                    strokeWidth={3}
+                    dot={{ fill: "#6C63FF", r: 5 }}
+                    activeDot={{ r: 7 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Recent Transactions */}
+        <Card className="border-border/50 shadow-lg">
+          <CardHeader>
+            <CardTitle className="text-xl">Transações Recentes</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-muted-foreground">Data</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-muted-foreground">Categoria</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-muted-foreground">Descrição</th>
+                    <th className="text-right py-3 px-4 text-sm font-semibold text-muted-foreground">Valor</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {demoTransactions.slice(0, 5).map((transaction) => (
+                    <tr key={transaction.id} className="border-b border-border/50 hover:bg-accent/50 transition-colors">
+                      <td className="py-3 px-4 text-sm">{new Date(transaction.date).toLocaleDateString()}</td>
+                      <td className="py-3 px-4 text-sm">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
+                          {transaction.category}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-sm">{transaction.description}</td>
+                      <td
+                        className={`py-3 px-4 text-sm text-right font-semibold ${transaction.type === "income" ? "text-secondary" : "text-foreground"}`}
+                      >
+                        {transaction.type === "income"
+                          ? `+ ${formatCurrency(Math.abs(transaction.amount))}`
+                          : `- ${formatCurrency(Math.abs(transaction.amount))}`}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Floating Action Button */}
+        <Dialog open={isTransactionOpen} onOpenChange={setIsTransactionOpen}>
+          <DialogTrigger asChild>
+            <Button
+              size="lg"
+              className="fixed bottom-8 right-8 h-14 w-14 rounded-full shadow-2xl hover:shadow-primary/50 transition-all"
+              aria-label="Adicionar nova transação"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Nova Transação</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="description">Descrição</Label>
+                <Input
+                  id="description"
+                  placeholder="Insira a descrição"
+                  value={newTransaction.description}
+                  onChange={(e) => setNewTransaction({ ...newTransaction, description: e.target.value })}
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="amount">Valor</Label>
+                <Input
+                  id="amount"
+                  type="number"
+                  placeholder="0.00"
+                  value={newTransaction.amount}
+                  onChange={(e) => setNewTransaction({ ...newTransaction, amount: e.target.value })}
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="type">Tipo</Label>
+                <Select
+                  value={newTransaction.type}
+                  onValueChange={(value) => setNewTransaction({ ...newTransaction, type: value })}
+                >
+                  <SelectTrigger id="type">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="income">Renda</SelectItem>
+                    <SelectItem value="expense">Despesa</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="category">Categoria</Label>
+                <Select
+                  value={newTransaction.category}
+                  onValueChange={(value) => setNewTransaction({ ...newTransaction, category: value })}
+                >
+                  <SelectTrigger id="category">
+                    <SelectValue placeholder="Selecione a categoria" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((category) => (
+                      <SelectItem key={category} value={category}>
+                        {category}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="account">Conta</Label>
+                <Select
+                  value={newTransaction.account}
+                  onValueChange={(value) => setNewTransaction({ ...newTransaction, account: value })}
+                >
+                  <SelectTrigger id="account">
+                    <SelectValue placeholder="Selecione a conta" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Conta Corrente">Conta Corrente</SelectItem>
+                    <SelectItem value="Poupança">Poupança</SelectItem>
+                    <SelectItem value="Cartão de Crédito">Cartão de Crédito</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="date">Data</Label>
+                <Input
+                  id="date"
+                  type="date"
+                  value={newTransaction.date}
+                  onChange={(e) => setNewTransaction({ ...newTransaction, date: e.target.value })}
+                />
+              </div>
+
+              <div className="flex items-center space-x-2 pt-2 border-t border-border">
+                <Checkbox
+                  id="installment"
+                  checked={newTransaction.isInstallment}
+                  onCheckedChange={(checked) =>
+                    setNewTransaction({ ...newTransaction, isInstallment: checked as boolean })
+                  }
+                />
+                <Label htmlFor="installment" className="text-sm font-normal cursor-pointer">
+                  Compra parcelada
+                </Label>
+              </div>
+
+              {newTransaction.isInstallment && (
+                <div className="grid gap-2">
+                  <Label htmlFor="installments">Número de Parcelas</Label>
+                  <Input
+                    id="installments"
+                    type="number"
+                    min="2"
+                    max="48"
+                    placeholder="2"
+                    value={newTransaction.installments}
+                    onChange={(e) =>
+                      setNewTransaction({ ...newTransaction, installments: Number.parseInt(e.target.value) || 1 })
+                    }
+                  />
+                  {newTransaction.amount && newTransaction.installments > 1 && (
+                    <p className="text-sm text-muted-foreground">
+                      {newTransaction.installments}x de{" "}
+                      {formatCurrency(Number.parseFloat(newTransaction.amount) / newTransaction.installments)}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3 justify-end">
+              <Button variant="outline" onClick={() => setIsTransactionOpen(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={handleCreateTransaction}>Criar Transação</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </main>
+    </div>
+  )
+}
